@@ -125,11 +125,12 @@ function sanitizeFilename(name) {
     return name.replace(/[/\\?%*:|"<>]/g, '_');
 }
 
-async function downloadNovel(title, episodeLinks, startEpisode) {
-    const saveOption = prompt('저장 방식을 선택하세요:\n1 - 한 파일로 병합\n2 - 각 회차별 저장 (ZIP)', '1');
+async function downloadNovel(title, episodeLinks, startEpisode, endEpisode) {
+    const saveOption = prompt('저장 방식을 선택하세요:\n1 - 한 파일로 병합\n2 - 각 회차별 저장 (ZIP)\n3 - 각 회차별 바로 저장', '1');
     if (!saveOption) return;
     
     const saveAsZip = saveOption === '2';
+    const saveIndividually = saveOption === '3';
     let zip;
     
     if (saveAsZip) {
@@ -161,9 +162,10 @@ async function downloadNovel(title, episodeLinks, startEpisode) {
 
     const startTime = Date.now();
     const startingIndex = episodeLinks.length - startEpisode;
+    const endingIndex = episodeLinks.length - endEpisode;
     let novelText = `${title}\n\nDownloaded with novel-dl,\nhttps://github.com/yeorinhieut/novel-dl\n\n`;
 
-    for (let i = startingIndex; i >= 0; i--) {
+    for (let i = startingIndex; i >= endingIndex; i--) {
         const episodeUrl = episodeLinks[i];
         if (!episodeUrl.startsWith('https://booktoki')) continue;
 
@@ -179,16 +181,22 @@ async function downloadNovel(title, episodeLinks, startEpisode) {
         
         if (saveAsZip) {
             zip.file(`${sanitizeFilename(episodeTitle)}.txt`, content);
+        } else if (saveIndividually) {
+            const blob = new Blob([`${episodeTitle}\n\n${content}`], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${sanitizeFilename(episodeTitle)}.txt`;
+            a.click();
         } else {
             novelText += `${episodeTitle}\n\n${content}\n\n`;
         }
 
-        const progress = ((startingIndex - i + 1) / (startingIndex + 1)) * 100;
+        const progress = ((startingIndex - i + 1) / (startingIndex - endingIndex + 1)) * 100;
         progressBar.style.width = `${progress}%`;
 
         const elapsed = Date.now() - startTime;
         const remaining = (elapsed / progress * (100 - progress)) || 0;
-        progressLabel.textContent = `진행률: ${progress.toFixed(1)}% (남은 시간: ${Math.floor(remaining/60000)}분 ${Math.floor((remaining%60000)/1000)}초)`;
+        progressLabel.textContent = `진행률: ${progress.toFixed(1)}% (남은 시간: ${Math.floor(remaining/60000)}분 ${Math.floor((remaining%60000)/3000)}초)`;
 
         await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000));
     }
@@ -201,11 +209,11 @@ async function downloadNovel(title, episodeLinks, startEpisode) {
         a.href = URL.createObjectURL(zipBlob);
         a.download = `${sanitizeFilename(title)}.zip`;
         a.click();
-    } else {
+    } else if (!saveIndividually) {
         const blob = new Blob([novelText], {type: 'text/plain'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${sanitizeFilename(title)}(${startEpisode}~${episodeLinks.length}).txt`;
+        a.download = `${sanitizeFilename(title)}(${startEpisode}~${endEpisode}).txt`;
         a.click();
     }
 }
@@ -280,22 +288,24 @@ async function runCrawler() {
     }
 
     const startEpisode = prompt(`다운로드를 시작할 회차 번호를 입력하세요 (1 부터 ${allEpisodeLinks.length}):`, '1');
+    const endEpisode = prompt(`다운로드를 끝낼 회차 번호를 입력하세요 (${startEpisode} 부터 ${allEpisodeLinks.length}):`, allEpisodeLinks.length);
 
-    if (!startEpisode || isNaN(startEpisode)) {
+    if (!startEpisode || isNaN(startEpisode) || !endEpisode || isNaN(endEpisode)) {
         console.log('Invalid episode number or user canceled the input.');
         return;
     }
 
     const startEpisodeNumber = parseInt(startEpisode, 10);
+    const endEpisodeNumber = parseInt(endEpisode, 10);
 
-    if (startEpisodeNumber < 1 || startEpisodeNumber > allEpisodeLinks.length) {
+    if (startEpisodeNumber < 1 || startEpisodeNumber > allEpisodeLinks.length || endEpisodeNumber < startEpisodeNumber || endEpisodeNumber > allEpisodeLinks.length) {
         console.log('Invalid episode number. Please enter a number between 1 and the total number of episodes.');
         return;
     }
 
-    console.log(`Task Appended: Preparing to download ${title} starting from episode ${startEpisodeNumber}`);
+    console.log(`Task Appended: Preparing to download ${title} starting from episode ${startEpisodeNumber} to ${endEpisodeNumber}`);
 
-    downloadNovel(title, allEpisodeLinks, startEpisodeNumber);
+    downloadNovel(title, allEpisodeLinks, startEpisodeNumber, endEpisodeNumber);
 }
 
 runCrawler();

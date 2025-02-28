@@ -198,7 +198,7 @@ async function downloadNovel(title, episodeLinks, startEpisode, endEpisode) {
         const remaining = (elapsed / progress * (100 - progress)) || 0;
         progressLabel.textContent = `진행률: ${progress.toFixed(1)}% (남은 시간: ${Math.floor(remaining/60000)}분 ${Math.floor((remaining%60000)/3000)}초)`;
 
-        await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000));
+        await new Promise(r => setTimeout(r, 1500 + Math.random() * 2000));
     }
 
     document.body.removeChild(modal);
